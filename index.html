@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+
+    <meta charset="utf-8">
+
+    <link href="/favicon.png" rel="icon" type="image/png">
+    <link href="style.css" rel="stylesheet" type="text/css">
+
+    <title>Flowfield</title>
+
+  </head>
+
+  <body>
+
+    <script>
+      // http://127.0.0.1:5501/data/gps_2021-09-15_Throop_Loop.csv
+      var url = location.protocol + '//' +
+      location.hostname + ':' +
+      location.port + '/' +
+      '/data/gps_2021-09-15_Throop_Loop.csv';
+      var geoEnvData = {
+        srcUrl: url,
+        x_axis: 'Longitude',
+        y_axis: 'Latitude',
+        values: ['PMS 1.0']
+      };
+    </script>
+
+    <script src="sketch.js"></script>
+
+    <script src="p5.min.js"></script>
+    <script src="GeoEnvData.js"></script>
+
+  </body>
+
+</html>

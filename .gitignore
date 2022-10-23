@@ -1,0 +1,10 @@
+.vscode/
+build/
+data/gps*.csv
+!data/gps_2021-09-15*.csv
+p5.*.js
+.eslintrc.js
+*.zip
+*~
+_*
+.#*
