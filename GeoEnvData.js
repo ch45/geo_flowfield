@@ -15,7 +15,7 @@ class GeoEnvData {
     this.columnExtents = getExtents(this.tbl);
     print(this.columnExtents);
   }
-  getLinearData(little_x_lim, little_y_lim, valColName) {
+  getBucketData(little_x_lim, little_y_lim, valColName) {
     let arr = [];
     let valCol = colFromName(this.tbl, valColName);
     print(valColName + ',' + valCol);

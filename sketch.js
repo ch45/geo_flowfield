@@ -1,21 +1,22 @@
 
 let params = {};
-params.scale = 25;
+params.scale = 30;
 params.lineColor = 51;
 params.backgroundColor = 220;
 params.real = {data: null};
-params.normalizedLinear = {data: [], extents: {x: 0, y: 0}};
+params.normalizedBucket = {data: [], extents: {x: 0, y: 0}};
+params.particles = {objects: [], max: 200, color: 102};
 
 function preload() {
   params.real.data = new GeoEnvData();
-  // params.normalizedLinear.data = params.real.data.getLinearData(windowWidth / params.scale, windowHeight / params.scale)
+  // params.normalizedBucket.data = params.real.data.getBucketData(windowWidth / params.scale, windowHeight / params.scale)
 }
 
 function setup() {
   params.real.data.setupGeoEnvData();
   createCanvas(windowWidth, windowHeight);
   noStroke();
-  // initParticles();
+  initParticles();
 }
 
 function windowResized() {
@@ -25,11 +26,12 @@ function windowResized() {
 function draw() {
   background(params.backgroundColor);
   stroke(params.lineColor);
-  let arr = getLinearData(floor(windowWidth / params.scale), floor(windowHeight / params.scale));
+  let arr = getBucketData(floor(windowWidth / params.scale), floor(windowHeight / params.scale));
   let ind = 0;
   let half_scale = floor(params.scale / 2);
   for (let y = half_scale; y < windowHeight - half_scale; y += params.scale) {
     for (let x = half_scale; x < windowWidth - half_scale; x += params.scale) {
+      // fill(params.backgroundColor)
       // square(x - half_scale, y - half_scale, params.scale);
       // circle(x, y, params.scale);
       let val = arr[ind++]; // frameCount / 100;
@@ -37,16 +39,16 @@ function draw() {
       line(x, y, x + v.y, y - v.x); // contrive that 0deg is up on the page (north)
     }
   }
-  //for (let i=0; i<particles.length; i++) {
-  //  particles[i].run();
-  // }
+  for (let i = 0; i < params.particles.max; i++) {
+    params.particles.objects[i].run();
+  }
   let s = round(frameRate(),1)+" "+round(millis()/1000,1); // x+","+y+": "+
   text(s, 10, windowHeight - 30);
 }
 
-function getLinearData(little_x_lim, little_y_lim) {
-  if (params.normalizedLinear.extents.x !== little_x_lim || params.normalizedLinear.extents.y !== little_y_lim) {
-    let arr = params.real.data.getLinearData(little_x_lim, little_y_lim, 'PMS 1.0');
+function getBucketData(little_x_lim, little_y_lim) {
+  if (params.normalizedBucket.extents.x !== little_x_lim || params.normalizedBucket.extents.y !== little_y_lim) {
+    let arr = params.real.data.getBucketData(little_x_lim, little_y_lim, 'PMS 1.0');
     // let arr = [];
     // let ind = 0;
     // let num = 0;
@@ -59,23 +61,30 @@ function getLinearData(little_x_lim, little_y_lim) {
     //     num += 0.005;
     //   }
     // }
-    params.normalizedLinear.extents.x = little_x_lim;
-    params.normalizedLinear.extents.y = little_y_lim;
-    params.normalizedLinear.data = arr;
+    params.normalizedBucket.extents.x = little_x_lim;
+    params.normalizedBucket.extents.y = little_y_lim;
+    params.normalizedBucket.data = arr;
   }
-  return params.normalizedLinear.data;
+  return params.normalizedBucket.data;
 }
 
 function initParticles() {
-  for (let i=0; i<num; i++) {
-    //x value start slightly outside the right of canvas, z value how close to viewer
-    let loc = createVector(random(width*1.2), random(height), 2);
-    let angle = 0; //any value to initialize
+  for (let i = 0; i < params.particles.max; i++) {
+    let loc = createVector(random(windowWidth), random(windowHeight));
+    let angle = random(TWO_PI); //any value to initialize
     let dir = createVector(cos(angle), sin(angle));
     let speed = random(0.5,2);
-    // let speed = random(5,map(mouseX,0,width,5,20));   // faster
-    particles[i]= new Particle(loc, dir, speed);
+    params.particles.objects[i]= new Particle(loc, dir, speed);
   }
+}
+
+function getValueFromBucket(x, y) {
+  x /= params.scale;
+  y /= params.scale;
+  if (x < 0 || x >= params.normalizedBucket.extents.x || y < 0 || y >= params.normalizedBucket.extents.y) {
+    return null;
+  }
+  return params.normalizedBucket.data[floor(y) * params.normalizedBucket.extents.x + floor(x)];
 }
 
 class Particle{
@@ -89,26 +98,33 @@ class Particle{
     this.checkEdges();
     this.update();
   }
-  move(){
-    // TODO let angle=params.real.data.noise(this.loc.x/noiseScale, this.loc.y/noiseScale, frameCount/noiseScale)*TWO_PI*noiseStrength; //0-2PI
-    this.dir.x = cos(angle);
-    this.dir.y = sin(angle);
+  move() {
+    // TODO look at params.normalizedBucket.extents
+    let val = getValueFromBucket(this.loc.x, this.loc.y);
+    // print(val);
+    if (val !== null) {
+      let angle = val * TWO_PI; //0-2PI  *noiseStrength
+      this.dir.x = sin(angle);
+      this.dir.y = -cos(angle);
+    }
+    // TODO HERE need to swing it around
     let vel = this.dir.copy();
-    let d = 1;  //direction change
+    let d = 1.5;  //direction change
     vel.mult(this.speed*d); //vel = vel * (speed*d)
     this.loc.add(vel); //loc = loc + vel
   }
-  checkEdges(){
+  checkEdges() {
+    // print("checkEdges test="+(this.loc.x<0 || this.loc.x>windowWidth || this.loc.y<0 || this.loc.y>windowHeight));
     //float distance = dist(width/2, height/2, loc.x, loc.y);
     //if (distance>150) {
-    if (this.loc.x<0 || this.loc.x>width || this.loc.y<0 || this.loc.y>height) {
-      this.loc.x = random(width*1.2);
-      this.loc.y = random(height);
+    if (this.loc.x<0 || this.loc.x>windowWidth || this.loc.y<0 || this.loc.y>windowHeight) {
+      let loc = createVector(random(windowWidth), random(windowHeight));
+      this.loc = loc;
     }
   }
-  update(){
-    fill(255);
+  update() {
+    fill(params.particles.color);
     // TODO draw line from previous point for plotter
-    ellipse(this.loc.x, this.loc.y, this.loc.z);
+    ellipse(this.loc.x, this.loc.y, 10);
   }
 }
