@@ -7,7 +7,7 @@ class GeoEnvData {
   }
   // TODO complete this
   random(min, max) {
-    return 0.5; // TODO 
+    return 0.5; // TODO
   }
   setupGeoEnvData() {
     print("setupGeoEnvData");

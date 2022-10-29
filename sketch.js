@@ -70,12 +70,17 @@ function getBucketData(little_x_lim, little_y_lim) {
 
 function initParticles() {
   for (let i = 0; i < params.particles.max; i++) {
-    let loc = createVector(random(windowWidth), random(windowHeight));
-    let angle = random(TWO_PI); //any value to initialize
-    let dir = createVector(cos(angle), sin(angle));
-    let speed = random(0.5,2);
-    params.particles.objects[i]= new Particle(loc, dir, speed);
+    params.particles.objects[i] = generateParticle();
   }
+}
+
+function generateParticle() {
+  let loc = createVector(random(windowWidth), random(windowHeight));
+  let angle = random(TWO_PI);
+  let acc = createVector(sin(angle), -cos(angle));
+  let dir = acc.copy().mult(random(0.2,1));
+  acc.mult(1/50);
+  return new Particle(loc, dir, acc);
 }
 
 function getValueFromBucket(x, y) {
@@ -88,10 +93,11 @@ function getValueFromBucket(x, y) {
 }
 
 class Particle{
-  constructor(_loc,_dir,_speed){
-    this.loc = _loc;
-    this.dir = _dir;
-    this.speed = _speed;
+  // Vector, Vector, Vector
+  constructor(loc, dir, acc){
+    this.loc = loc;
+    this.dir = dir;
+    this.acc = acc;
   }
   run() {
     this.move();
@@ -103,23 +109,23 @@ class Particle{
     let val = getValueFromBucket(this.loc.x, this.loc.y);
     // print(val);
     if (val !== null) {
-      let angle = val * TWO_PI; //0-2PI  *noiseStrength
-      this.dir.x = sin(angle);
-      this.dir.y = -cos(angle);
+      let angle = val * TWO_PI;
+      let acc = createVector(sin(angle), -cos(angle));
+      this.acc.add(acc.mult(this.acc.mag() * 3 / 100));
+      this.acc.mult(99/100);
+      this.dir.add(this.acc);
     }
-    // TODO HERE need to swing it around
-    let vel = this.dir.copy();
-    let d = 1.5;  //direction change
-    vel.mult(this.speed*d); //vel = vel * (speed*d)
-    this.loc.add(vel); //loc = loc + vel
+    this.loc.add(this.dir);
   }
   checkEdges() {
     // print("checkEdges test="+(this.loc.x<0 || this.loc.x>windowWidth || this.loc.y<0 || this.loc.y>windowHeight));
     //float distance = dist(width/2, height/2, loc.x, loc.y);
     //if (distance>150) {
     if (this.loc.x<0 || this.loc.x>windowWidth || this.loc.y<0 || this.loc.y>windowHeight) {
-      let loc = createVector(random(windowWidth), random(windowHeight));
-      this.loc = loc;
+      let newParticle = generateParticle();
+      this.loc = newParticle.loc;
+      this.dir = newParticle.dir;
+      this.acc = newParticle.acc;
     }
   }
   update() {
