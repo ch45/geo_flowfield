@@ -2,60 +2,15 @@
 // Latitude,Heading,Longitude,Heading,Time,GPS Altitude,GPS Altitude Units,PMS 1.0,PMS 2.5,PMS 10.0,Gas ADC,Gas Oxidizing,Gas Reducing,Gas NH3,Noise Low,Noise Mid,Noise High,Noise Total,Temperature,Humidity,Pressure,Altitude,Lux,Proximity']
 
 class GeoEnvData {
-  noise(x, y, z) {
-    return this.axis1(x);
-  }
-  // TODO complete this
-  random(min, max) {
-    return 0.5; // TODO
-  }
   setupGeoEnvData() {
     print("setupGeoEnvData");
     convertLatLong(this.tbl);
     this.columnExtents = getExtents(this.tbl);
     print(this.columnExtents);
   }
-  getZigZagBucketData(little_x_lim, little_y_lim) {
-    let arr = [];
-    let valColName = geoEnvData.values[0]; // TODO Just one currently 
-    let valCol = colFromName(this.tbl, valColName);
-    let least = this.columnExtents[valCol].least;
-    let greatest = this.columnExtents[valCol].greatest;
-    print(valColName + ': ' + least + " -> " + greatest);
-    let numRows = this.tbl.getRowCount();
-    let index = 0;
-    for (let y = 0; y < little_y_lim; y++) {
-      let x_start = 0;
-      let x_end = little_x_lim - 1;
-      let x_inc = 1;
-      if (y % 2 !== 0) {
-        x_end = 0;
-        x_start = little_x_lim - 1;
-        x_inc = -1;
-      }
-      for (let x = x_start; (x_inc > 0) ? x <= x_end :  x >= x_end; x += x_inc) {
-        let colVal = Number(this.tbl.get(index, valCol));
-        if (isNaN(colVal)) {
-          colVal = 0;
-        }
-        let val = map(colVal, least, greatest + 1, 0, 1);
-        arr[y * little_x_lim + x] = val;
-        index++;
-        if (index > numRows) {
-          index = 0;
-        }
-      }
-    }
-    return arr;
-  }
-  axis1(x) {
-    let r = Math.round(map(Math.abs(x) % 1, 0, 1, 0, this.tbl.getRowCount()-1));
-    let valCol = colFromName(this.tbl, "Latitude");
-    let val = Number(this.tbl.get(r, valCol));
-    if (isNaN(val)) {
-      val = 0;
-    }
-    return map(val, this.columnExtents[valCol].least, this.columnExtents[valCol].greatest, 0, 1);
+  getBucketData(little_x_lim, little_y_lim) {
+    let valColName = geoEnvData.values[0]; // TODO Just one currently
+    return getZigZagBucketData(little_x_lim, little_y_lim, valColName, this.columnExtents, this.tbl)
   }
   constructor(csvData) {
     print("GeoEnvData CONSTUCT");
@@ -226,3 +181,35 @@ function getNextGoodLocation(tbl, r) {
   return -1;
 }
 
+function getZigZagBucketData(little_x_lim, little_y_lim, valColName, extents, tbl) {
+  let arr = [];
+  let valCol = colFromName(tbl, valColName);
+  let least = extents[valCol].least;
+  let greatest = extents[valCol].greatest;
+  print(valColName + ': ' + least + " -> " + greatest);
+  let numRows = tbl.getRowCount();
+  let index = 0;
+  for (let y = 0; y < little_y_lim; y++) {
+    let x_start = 0;
+    let x_end = little_x_lim - 1;
+    let x_inc = 1;
+    if (y % 2 !== 0) {
+      x_end = 0;
+      x_start = little_x_lim - 1;
+      x_inc = -1;
+    }
+    for (let x = x_start; (x_inc > 0) ? x <= x_end :  x >= x_end; x += x_inc) {
+      let colVal = Number(tbl.get(index, valCol));
+      if (isNaN(colVal)) {
+        colVal = 0;
+      }
+      let val = map(colVal, least, greatest + 1, 0, 1);
+      arr[y * little_x_lim + x] = val;
+      index++;
+      if (index > numRows) {
+        index = 0;
+      }
+    }
+  }
+  return arr;
+}

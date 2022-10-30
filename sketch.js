@@ -49,7 +49,7 @@ function draw() {
 function getBucketData(little_x_lim, little_y_lim) {
   if (params.normalizedBucket.extents.x !== little_x_lim || params.normalizedBucket.extents.y !== little_y_lim) {
     // let arr = getTestRotatingBucketData(little_x_lim, little_y_lim);
-    let arr = params.real.data.getZigZagBucketData(little_x_lim, little_y_lim);
+    let arr = params.real.data.getBucketData(little_x_lim, little_y_lim);
     params.normalizedBucket.extents.x = little_x_lim;
     params.normalizedBucket.extents.y = little_y_lim;
     params.normalizedBucket.data = arr;
