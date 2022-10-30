@@ -15,10 +15,13 @@ class GeoEnvData {
     this.columnExtents = getExtents(this.tbl);
     print(this.columnExtents);
   }
-  getBucketData(little_x_lim, little_y_lim, valColName) {
+  getZigZagBucketData(little_x_lim, little_y_lim) {
     let arr = [];
+    let valColName = geoEnvData.values[0]; // TODO Just one currently 
     let valCol = colFromName(this.tbl, valColName);
-    print(valColName + ',' + valCol);
+    let least = this.columnExtents[valCol].least;
+    let greatest = this.columnExtents[valCol].greatest;
+    print(valColName + ': ' + least + " -> " + greatest);
     let numRows = this.tbl.getRowCount();
     let index = 0;
     for (let y = 0; y < little_y_lim; y++) {
@@ -35,7 +38,7 @@ class GeoEnvData {
         if (isNaN(colVal)) {
           colVal = 0;
         }
-        let val = map(colVal, this.columnExtents[valCol].least, this.columnExtents[valCol].greatest, 0, 1);
+        let val = map(colVal, least, greatest + 1, 0, 1);
         arr[y * little_x_lim + x] = val;
         index++;
         if (index > numRows) {

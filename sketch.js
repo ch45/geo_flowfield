@@ -48,19 +48,8 @@ function draw() {
 
 function getBucketData(little_x_lim, little_y_lim) {
   if (params.normalizedBucket.extents.x !== little_x_lim || params.normalizedBucket.extents.y !== little_y_lim) {
-    let arr = params.real.data.getBucketData(little_x_lim, little_y_lim, 'PMS 1.0');
-    // let arr = [];
-    // let ind = 0;
-    // let num = 0;
-    // for (let y = 0; y < little_y_lim; y++) {
-    //   for (let x = 0; x < little_x_lim; x++) {
-    //     if (num >= 1) {
-    //       num = 0;
-    //     }
-    //     arr[ind++] = num;
-    //     num += 0.005;
-    //   }
-    // }
+    // let arr = getTestRotatingBucketData(little_x_lim, little_y_lim);
+    let arr = params.real.data.getZigZagBucketData(little_x_lim, little_y_lim);
     params.normalizedBucket.extents.x = little_x_lim;
     params.normalizedBucket.extents.y = little_y_lim;
     params.normalizedBucket.data = arr;
@@ -90,6 +79,23 @@ function getValueFromBucket(x, y) {
     return null;
   }
   return params.normalizedBucket.data[floor(y) * params.normalizedBucket.extents.x + floor(x)];
+}
+
+function getTestRotatingBucketData(little_x_lim, little_y_lim) {
+  print(little_x_lim + "," + little_y_lim);
+  let arr = [];
+  let ind = 0;
+  let num = 0;
+  for (let y = 0; y < little_y_lim; y++) {
+    for (let x = 0; x < little_x_lim; x++) {
+      if (num >= 1) {
+        num = 0;
+      }
+      arr[ind++] = num;
+      num += 1 / 400;
+    }
+  }
+  return arr;
 }
 
 class Particle{
