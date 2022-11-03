@@ -9,8 +9,11 @@ class GeoEnvData {
     print(this.columnExtents);
   }
   getBucketData(little_x_lim, little_y_lim) {
-    let valColName = geoEnvData.values[0]; // TODO Just one currently
-    return getZigZagBucketData(little_x_lim, little_y_lim, valColName, this.columnExtents, this.tbl)
+    let valColName = geoEnvData.readings[0]; // TODO Just one currently
+    // let arr = getZigZagBucketData(little_x_lim, little_y_lim, valColName, this.columnExtents, this.tbl);
+    let arr =  getLocBucketData(this.tbl, this.columnExtents, geoEnvData.readings, geoEnvData.x_axis, geoEnvData.y_axis, little_x_lim, little_y_lim);
+    print("bucket array length=" + arr.length);
+    return arr;
   }
   constructor(csvData) {
     print("GeoEnvData CONSTUCT");
@@ -211,5 +214,61 @@ function getZigZagBucketData(little_x_lim, little_y_lim, valColName, extents, tb
       }
     }
   }
+  return arr;
+}
+
+function getLocBucketData(tbl, extents, readings, x_axis, y_axis, little_x_lim, little_y_lim) {
+  let arr = [];
+  let data = [];
+  let xCol = colFromName(tbl, x_axis);
+  let yCol = colFromName(tbl, y_axis);
+  let xExtents = {
+    least: extents[xCol].least,
+    greatest: extents[xCol].greatest,
+    margin: (extents[xCol].greatest - extents[xCol].least) / 24
+  };
+  let yExtents = {
+    least: extents[yCol].least,
+    greatest: extents[yCol].greatest,
+    margin: (extents[yCol].greatest - extents[yCol].least) / 24
+  };
+  let numRows = tbl.getRowCount();
+  let count = 0;
+  for (let row = 0; row < numRows; row++) {
+    let x = Math.floor(map(Number(tbl.get(row, xCol)), xExtents.least, xExtents.greatest, 0, little_x_lim-1));
+    let y = Math.floor(map(Number(tbl.get(row, yCol)), yExtents.greatest, yExtents.least, 0, little_y_lim-1));
+    for (let valColName of readings) {
+      let valCol = colFromName(tbl, valColName);
+      let colVal = Number(tbl.get(row, valCol));
+      if (isNaN(colVal)) {
+        colVal = 0;
+      }
+      let val = map(colVal, extents[valCol].least, extents[valCol].greatest + 1, 0, 1);
+      if (typeof data[y] === 'undefined') {
+        data[y] = [];
+      }
+      if (typeof data[y][x] === 'undefined') {
+        data[y][x] = {sum: val, count: 1};
+      } else {
+        data[y][x].sum += val;
+        data[y][x].count++;
+      }
+    }
+    count++;
+  }
+  print("number of readings rows=" + count);
+  count = 0;
+  for (let y in data ) {
+    let offset = Number(y) * little_x_lim;
+    for (let x in data[y] ) {
+      if (typeof data[y][x] !== 'undefined') {
+        let index = offset + Number(x);
+        arr[index] = data[y][x].sum / data[y][x].count;
+        count++;
+        // print(x + "," + y + " => " + index + ": " + arr[index] /* nfc(data[y][x].sum) + " / " + data[y][x].count */);
+      }
+    }
+  }
+  print("number of bucket rows=" + count);
   return arr;
 }
