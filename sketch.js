@@ -3,6 +3,7 @@ let params = {};
 params.scale = 30;
 params.lineColor = 51;
 params.backgroundColor = 220;
+params.alpha = 10;
 params.real = {data: null};
 params.normalizedBucket = {data: [], extents: {x: 0, y: 0}};
 params.particles = {objects: [], max: 200, color: 102};
@@ -17,18 +18,33 @@ function setup() {
   createCanvas(windowWidth, windowHeight);
   noStroke();
   initParticles();
+  background(params.backgroundColor);
 }
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
+  background(params.backgroundColor);
 }
 
 function draw() {
-  background(params.backgroundColor);
-  stroke(params.lineColor);
+  let throttle = 1; // >=1
+  fill(params.backgroundColor, params.alpha);
+  rect(0, 0, windowWidth-1, windowHeight-1);
+  drawScreenFlowGuides();
+  for (let i = frameCount % throttle; i < params.particles.max; i += 1 + (frameCount % throttle)) {
+    params.particles.objects[i].run();
+  }
+  drawScreenMsg(round(frameRate(),1)+" "+round(millis()/1000,1));
+}
+
+function drawScreenFlowGuides() {
   let arr = getBucketData(floor(windowWidth / params.scale), floor(windowHeight / params.scale));
+  if (frameCount > 600) {
+    return;
+  }
   let ind = 0;
   let half_scale = floor(params.scale / 2);
+  stroke(params.lineColor);
   for (let y = half_scale; y < windowHeight - half_scale; y += params.scale) {
     for (let x = half_scale; x < windowWidth - half_scale; x += params.scale) {
       // fill(params.backgroundColor)
@@ -39,11 +55,13 @@ function draw() {
       line(x, y, x + v.y, y - v.x); // contrive that 0deg is up on the page (north)
     }
   }
-  for (let i = 0; i < params.particles.max; i++) {
-    params.particles.objects[i].run();
-  }
-  let s = round(frameRate(),1)+" "+round(millis()/1000,1); // x+","+y+": "+
-  text(s, 10, windowHeight - 30);
+}
+
+function drawScreenMsg(txt) {
+  fill(params.backgroundColor);
+  rect(8, windowHeight - 42, textWidth(txt) + 4, 14);
+  fill(params.lineColor);
+  text(txt, 10, windowHeight - 30);
 }
 
 function getBucketData(little_x_lim, little_y_lim) {
@@ -117,7 +135,7 @@ class Particle{
     if (val !== null) {
       let angle = val * TWO_PI;
       let acc = createVector(sin(angle), -cos(angle));
-      this.acc.add(acc.mult(this.acc.mag() * 3 / 100));
+      this.acc.add(acc.mult(this.acc.mag() * 8 / 100));
       this.acc.mult(99/100);
       this.dir.add(this.acc);
     }
@@ -136,6 +154,7 @@ class Particle{
   }
   update() {
     fill(params.particles.color);
+    noStroke();
     // TODO draw line from previous point for plotter
     ellipse(this.loc.x, this.loc.y, 10);
   }

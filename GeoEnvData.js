@@ -222,21 +222,12 @@ function getLocBucketData(tbl, extents, readings, x_axis, y_axis, little_x_lim, 
   let data = [];
   let xCol = colFromName(tbl, x_axis);
   let yCol = colFromName(tbl, y_axis);
-  let xExtents = {
-    least: extents[xCol].least,
-    greatest: extents[xCol].greatest,
-    margin: (extents[xCol].greatest - extents[xCol].least) / 24
-  };
-  let yExtents = {
-    least: extents[yCol].least,
-    greatest: extents[yCol].greatest,
-    margin: (extents[yCol].greatest - extents[yCol].least) / 24
-  };
+  let locExtents = getNormalizedLocationExtents(extents, xCol, yCol);
   let numRows = tbl.getRowCount();
   let count = 0;
   for (let row = 0; row < numRows; row++) {
-    let x = Math.floor(map(Number(tbl.get(row, xCol)), xExtents.least, xExtents.greatest, 0, little_x_lim-1));
-    let y = Math.floor(map(Number(tbl.get(row, yCol)), yExtents.greatest, yExtents.least, 0, little_y_lim-1));
+    let x = Math.floor(map(Number(tbl.get(row, xCol)), locExtents.x.least, locExtents.x.greatest, 0, little_x_lim-1));
+    let y = Math.floor(map(Number(tbl.get(row, yCol)), locExtents.y.greatest, locExtents.y.least, 0, little_y_lim-1));
     for (let valColName of readings) {
       let valCol = colFromName(tbl, valColName);
       let colVal = Number(tbl.get(row, valCol));
@@ -271,4 +262,30 @@ function getLocBucketData(tbl, extents, readings, x_axis, y_axis, little_x_lim, 
   }
   print("number of bucket rows=" + count);
   return arr;
+}
+
+function getNormalizedLocationExtents(extents, xCol, yCol) {
+  let inp = {};
+  inp.x = {};
+  inp.y = {};
+  inp.x.greatest = extents[xCol].greatest;
+  inp.x.least = extents[xCol].least;
+  inp.y.greatest = extents[yCol].greatest;
+  inp.y.least = extents[yCol].least;
+
+  let latDist = 10000000 * (inp.y.greatest - inp.y.least) / 90;
+  let longDist = (inp.x.greatest - inp.x.least) / 360 * 40075017 * Math.cos(radians(map(0.5, 0, 1, inp.y.least, inp.y.greatest)));
+
+  let metrePerPixelRatio = (latDist / windowHeight) / (longDist / windowWidth);
+  if (metrePerPixelRatio > 1) {
+    let mid = map(0.5, 0, 1, inp.x.least, inp.x.greatest);
+    inp.x.greatest = map(metrePerPixelRatio, 0, 1, mid, inp.x.greatest);
+    inp.x.least = map(metrePerPixelRatio, 0, 1, mid, inp.x.least);
+  } else {
+    let mid = map(0.5, 0, 1, inp.y.least, inp.y.greatest);
+    inp.y.greatest = map(1 / metrePerPixelRatio, 0, 1, mid, inp.y.greatest);
+    inp.y.least = map(1 / metrePerPixelRatio, 0, 1, mid, inp.y.least);
+  }
+
+  return inp;
 }
