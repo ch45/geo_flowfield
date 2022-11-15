@@ -4,23 +4,28 @@
 class GeoEnvData {
   setupGeoEnvData() {
     print("setupGeoEnvData");
-    convertLatLong(this.tbl);
-    this.columnExtents = getExtents(this.tbl);
-    print(this.columnExtents);
+    for (let tbl of this.tblArr) {
+      convertLatLong(tbl);
+      let columnExtents = getExtents(tbl);
+      print(columnExtents);
+      this.columnExtents = mergeExtents(this.columnExtents, columnExtents);
+    }
   }
   getBucketData(little_x_lim, little_y_lim) {
-    let valColName = geoEnvData.readings[0]; // TODO Just one currently
     // let arr = getZigZagBucketData(little_x_lim, little_y_lim, valColName, this.columnExtents, this.tbl);
-    let arr =  getLocBucketData(this.tbl, this.columnExtents, geoEnvData.readings, geoEnvData.x_axis, geoEnvData.y_axis, little_x_lim, little_y_lim);
-    print("bucket array length=" + arr.length);
+    let arr =  getLocBucketData(this.tblArr, this.columnExtents, geoEnvData.readings, geoEnvData.x_axis, geoEnvData.y_axis, little_x_lim, little_y_lim);
+    // print("bucket array length=" + arr.length);
     return arr;
   }
-  constructor(csvData) {
+  constructor(csvDataArr) {
     print("GeoEnvData CONSTUCT");
-    if (typeof csvData === 'undefined') {
-      csvData = geoEnvData.srcUrl;
+    this.tblArr = [];
+    if (typeof csvDataArr === 'undefined') {
+      csvDataArr = geoEnvData.srcUrls;
     }
-    this.tbl = loadTable(csvData, 'csv', 'header');
+    for (let cvsData of csvDataArr) {
+      this.tblArr.push(loadTable(cvsData, 'csv', 'header'));
+    }
   }
 }
 
@@ -60,7 +65,8 @@ function getExtents(tbl) {
   let numCols = tbl.getColumnCount();
   let arr = [];
   for (let col = 0; col < numCols; col++) {
-    arr.push(getColumnExtents(tbl, col));
+    let colName = tbl.columns[col].trim();
+    arr[colName] = getColumnExtents(tbl, col);
   }
   return arr;
 }
@@ -86,7 +92,6 @@ function getColumnExtents(tbl, col) {
   return { "least": least, "greatest": greatest };
 }
 
-
 function colFromName(tbl, colName) {
   let numCols = tbl.getColumnCount();
   for (var j = 0; j < numCols; j++) {
@@ -95,7 +100,7 @@ function colFromName(tbl, colName) {
     }
   }
   if (j === numCols) {
-    return;
+    return -1;
   }
   return j;
 }
@@ -186,10 +191,10 @@ function getNextGoodLocation(tbl, r) {
 
 function getZigZagBucketData(little_x_lim, little_y_lim, valColName, extents, tbl) {
   let arr = [];
-  let valCol = colFromName(tbl, valColName);
-  let least = extents[valCol].least;
-  let greatest = extents[valCol].greatest;
+  let least = extents[valColName].least;
+  let greatest = extents[valColName].greatest;
   print(valColName + ': ' + least + " -> " + greatest);
+  let valCol = colFromName(tbl, valColName);
   let numRows = tbl.getRowCount();
   let index = 0;
   for (let y = 0; y < little_y_lim; y++) {
@@ -217,75 +222,107 @@ function getZigZagBucketData(little_x_lim, little_y_lim, valColName, extents, tb
   return arr;
 }
 
-function getLocBucketData(tbl, extents, readings, x_axis, y_axis, little_x_lim, little_y_lim) {
-  let arr = [];
+function getLocBucketData(tblArr, extents, readings, x_axis, y_axis, little_x_lim, little_y_lim) {
   let data = [];
-  let xCol = colFromName(tbl, x_axis);
-  let yCol = colFromName(tbl, y_axis);
-  let locExtents = getNormalizedLocationExtents(extents, xCol, yCol);
-  let numRows = tbl.getRowCount();
-  let count = 0;
-  for (let row = 0; row < numRows; row++) {
-    let x = Math.floor(map(Number(tbl.get(row, xCol)), locExtents.x.least, locExtents.x.greatest, 0, little_x_lim-1));
-    let y = Math.floor(map(Number(tbl.get(row, yCol)), locExtents.y.greatest, locExtents.y.least, 0, little_y_lim-1));
-    for (let valColName of readings) {
-      let valCol = colFromName(tbl, valColName);
-      let colVal = Number(tbl.get(row, valCol));
-      if (isNaN(colVal)) {
-        colVal = 0;
-      }
-      let val = map(colVal, extents[valCol].least, extents[valCol].greatest + 1, 0, 1);
-      if (typeof data[y] === 'undefined') {
-        data[y] = [];
-      }
-      if (typeof data[y][x] === 'undefined') {
-        data[y][x] = {sum: val, count: 1};
-      } else {
-        data[y][x].sum += val;
-        data[y][x].count++;
+  let locExtents = getNormalizedLocationExtents(extents, x_axis, y_axis);
+  for (let tbl of tblArr) {
+    let xCol = colFromName(tbl, x_axis);
+    let yCol = colFromName(tbl, y_axis);
+    let numRows = tbl.getRowCount();
+    for (let row = 0; row < numRows; row++) {
+      let x = Math.floor(map(Number(tbl.get(row, xCol)), locExtents.x.least, locExtents.x.greatest, 0, little_x_lim-1));
+      let y = Math.floor(map(Number(tbl.get(row, yCol)), locExtents.y.greatest, locExtents.y.least, 0, little_y_lim-1));
+      for (let reading of readings) {
+        let colNum = colFromName(tbl, reading);
+        if (colNum < 0) {
+          continue;
+        }
+        let colVal = Number(tbl.get(row, colNum));
+        if (isNaN(colVal)) {
+          colVal = 0;
+        }
+        let val = map(colVal, extents[reading].least, extents[reading].greatest + 1, 0, 1);
+        if (typeof data[y] === 'undefined') {
+          data[y] = [];
+        }
+        if (typeof data[y][x] === 'undefined') {
+          data[y][x] = {sum: val, count: 1};
+        } else {
+          data[y][x].sum += val;
+          data[y][x].count++;
+        }
       }
     }
-    count++;
   }
-  print("number of readings rows=" + count);
-  count = 0;
+  let arr = [];
   for (let y in data ) {
     let offset = Number(y) * little_x_lim;
     for (let x in data[y] ) {
       if (typeof data[y][x] !== 'undefined') {
         let index = offset + Number(x);
         arr[index] = data[y][x].sum / data[y][x].count;
-        count++;
-        // print(x + "," + y + " => " + index + ": " + arr[index] /* nfc(data[y][x].sum) + " / " + data[y][x].count */);
       }
     }
   }
-  print("number of bucket rows=" + count);
   return arr;
 }
 
-function getNormalizedLocationExtents(extents, xCol, yCol) {
-  let inp = {};
-  inp.x = {};
-  inp.y = {};
-  inp.x.greatest = extents[xCol].greatest;
-  inp.x.least = extents[xCol].least;
-  inp.y.greatest = extents[yCol].greatest;
-  inp.y.least = extents[yCol].least;
+function getNormalizedLocationExtents(extents, xColName, yColName) {
+  let result = {x: {}, y: {}};
+  result.x.greatest = extents[xColName].greatest;
+  result.x.least = extents[xColName].least;
+  result.y.greatest = extents[yColName].greatest;
+  result.y.least = extents[yColName].least;
 
-  let latDist = 10000000 * (inp.y.greatest - inp.y.least) / 90;
-  let longDist = (inp.x.greatest - inp.x.least) / 360 * 40075017 * Math.cos(radians(map(0.5, 0, 1, inp.y.least, inp.y.greatest)));
+  let latDist = 10000000 * (result.y.greatest - result.y.least) / 90;
+  let longDist = (result.x.greatest - result.x.least) / 360 * 40075017 * Math.cos(radians(map(0.5, 0, 1, result.y.least, result.y.greatest)));
 
   let metrePerPixelRatio = (latDist / windowHeight) / (longDist / windowWidth);
+  // print(nfc(metrePerPixelRatio, 2));
   if (metrePerPixelRatio > 1) {
-    let mid = map(0.5, 0, 1, inp.x.least, inp.x.greatest);
-    inp.x.greatest = map(metrePerPixelRatio, 0, 1, mid, inp.x.greatest);
-    inp.x.least = map(metrePerPixelRatio, 0, 1, mid, inp.x.least);
+    let mid = map(0.5, 0, 1, result.x.least, result.x.greatest);
+    result.x.greatest = map(metrePerPixelRatio, 0, 1, mid, result.x.greatest);
+    result.x.least = map(metrePerPixelRatio, 0, 1, mid, result.x.least);
   } else {
-    let mid = map(0.5, 0, 1, inp.y.least, inp.y.greatest);
-    inp.y.greatest = map(1 / metrePerPixelRatio, 0, 1, mid, inp.y.greatest);
-    inp.y.least = map(1 / metrePerPixelRatio, 0, 1, mid, inp.y.least);
+    let mid = map(0.5, 0, 1, result.y.least, result.y.greatest);
+    result.y.greatest = map(1 / metrePerPixelRatio, 0, 1, mid, result.y.greatest);
+    result.y.least = map(1 / metrePerPixelRatio, 0, 1, mid, result.y.least);
   }
 
-  return inp;
+  return result;
 }
+
+function mergeExtents(existing, addition) {
+  if (typeof existing === "undefined" || existing === null || existing.length === 0) {
+    return extentsCopy(addition);
+  }
+  let result = extentsCopy(existing);
+  for (let key in addition) {
+    if (typeof result[key] === "undefined") {
+      result[key] = {
+        least: addition[key].least,
+        greatest: addition[key].greatest
+      };
+    } else {
+      if (result[key].least > addition[key].least) {
+        result[key].least = addition[key].least;
+      }
+      if (result[key].greatest < addition[key].greatest) {
+        result[key].greatest = addition[key].greatest;
+      }
+    }
+  }
+  return result;
+}
+
+function extentsCopy(src) {
+  let copy = {};
+  for (let key in src) {
+    copy[key] = {
+      least: src[key].least,
+      greatest: src[key].greatest
+    };
+  }
+  return copy;
+}
+

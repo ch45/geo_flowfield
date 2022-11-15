@@ -4,8 +4,10 @@
 
     <meta charset="utf-8">
 
-    <link href="favicon.png" rel="icon" type="image/png">
+    <script src="p5.min.js"></script>
+
     <link href="style.css" rel="stylesheet" type="text/css">
+    <link href="favicon.png" rel="icon" type="image/png">
 
     <title>Flowfield</title>
 
@@ -15,15 +17,12 @@
 
     <script>
       var geoEnvData = {
-        srcUrl: 'data/gps_2021-09-15_Throop_Loop.csv',
-        // srcUrl: 'data/gps_1627716087.csv',
+        srcUrls: ['data/gps_2021-09-15_Throop_Loop.csv', 'data/gps_1627716087.csv'],
         x_axis: 'Longitude',
         y_axis: 'Latitude',
         readings: ['PMS 1.0', 'PMS 2.5', 'PMS 10.0']
       };
     </script>
-
-    <script src="p5.min.js"></script>
 
     <script src="GeoEnvData.js"></script>
     <script src="sketch.js"></script>
