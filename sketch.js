@@ -40,7 +40,9 @@ function draw() {
     for (let i = frameCount % params.throttle; i < params.particles.max; i += 1 + (frameCount % params.throttle)) {
       params.particles.objects[i].run();
     }
-    drawScreenMsg(round(frameRate(),1)+" "+round(millis()/1000,1));
+    if (params.saveSVG.mode === 0) {
+      drawScreenMsg(round(frameRate(),1)+" "+round(millis()/1000,1));
+    }
   }
 }
 
@@ -58,7 +60,7 @@ function checkDrawingSVG() {
         return false;
       case 2: // collecting data
         copyParticleLocationsToVectors();
-        drawScreenMsg("Num. Paths " + params.saveSVG.vectorPath.length);
+        drawScreenMsg("Collecting Paths " + params.saveSVG.vectorPath.length);
         return false;
       default:
         return false;
@@ -82,9 +84,9 @@ function checkDrawingSVG() {
       case 4:
         return true;
       case 5:
+        params.saveSVG.mode = 0; // reset
         save();
         params.canvas = createCanvas(windowWidth, windowHeight);
-        params.saveSVG.mode = 0; // reset
         return false;
     }
   }
