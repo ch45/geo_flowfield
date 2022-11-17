@@ -5,6 +5,7 @@ data/gps*.csv
 !data/gps_16*.csv
 p5.*.js
 .eslintrc.js
+*.svg
 *.zip
 *~
 _*

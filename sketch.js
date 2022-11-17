@@ -6,7 +6,11 @@ params.backgroundColor = 220;
 params.alpha = 10;
 params.real = {data: null};
 params.normalizedBucket = {data: [], extents: {x: 0, y: 0}};
-params.particles = {objects: [], max: 200, color: 102};
+params.particles = {objects: [], nextId: 0, max: 60, color: 102};
+params.saveSVG = {pg: null, vectorPath: [], mode: 0};
+params.throttle = 1; // >=1
+params.KeyS = 83; // the S key - to save flowfield as an SVG while depressed
+params.canvas = null;
 
 function preload() {
   params.real.data = new GeoEnvData();
@@ -15,7 +19,7 @@ function preload() {
 
 function setup() {
   params.real.data.setupGeoEnvData();
-  createCanvas(windowWidth, windowHeight);
+  params.canvas = createCanvas(windowWidth, windowHeight);
   noStroke();
   initParticles();
   background(params.backgroundColor);
@@ -27,14 +31,63 @@ function windowResized() {
 }
 
 function draw() {
-  let throttle = 1; // >=1
-  fill(params.backgroundColor, params.alpha);
-  rect(0, 0, windowWidth-1, windowHeight-1);
-  drawScreenFlowGuides();
-  for (let i = frameCount % throttle; i < params.particles.max; i += 1 + (frameCount % throttle)) {
-    params.particles.objects[i].run();
+  if (checkDrawingSVG()) {
+    drawSVGVectorPath();
+  } else {
+    fill(params.backgroundColor, params.alpha);
+    rect(0, 0, windowWidth-1, windowHeight-1);
+    drawScreenFlowGuides();
+    for (let i = frameCount % params.throttle; i < params.particles.max; i += 1 + (frameCount % params.throttle)) {
+      params.particles.objects[i].run();
+    }
+    drawScreenMsg(round(frameRate(),1)+" "+round(millis()/1000,1));
   }
-  drawScreenMsg(round(frameRate(),1)+" "+round(millis()/1000,1));
+}
+
+function checkDrawingSVG() {
+  print("save SVG mode " + params.saveSVG.mode);
+  if (keyIsDown(params.KeyS)) {
+    print("s key depressed");
+    switch (params.saveSVG.mode) {
+      case 0:
+        params.saveSVG.mode = 1; // cycle for a de-bounce
+        return false;
+      case 1: // de-bounce pass
+      case 3: // de-bounce return
+        params.saveSVG.mode = 2; // collecting data
+        return false;
+      case 2: // collecting data
+        copyParticleLocationsToVectors();
+        drawScreenMsg("Num. Paths " + params.saveSVG.vectorPath.length);
+        return false;
+      default:
+        return false;
+      }
+  } else {
+    switch (params.saveSVG.mode) {
+      case 0:
+        return false; // normal raster render
+      case 1:  
+        params.saveSVG.mode = 0; // revert de-bounce
+        return false;
+      case 2:
+        params.saveSVG.mode = 3; // cycle for a de-bounce
+        return false;
+      case 3: 
+        params.saveSVG.mode = 4; // switch to SVG drawing
+        params.canvas = createCanvas(windowWidth, windowHeight, SVG);
+        return true;
+      // case 4: 
+      //   somewhere else progress from mode 4
+      case 4:
+        return true;
+      case 5:
+        save();
+        params.canvas = createCanvas(windowWidth, windowHeight);
+        params.saveSVG.mode = 0; // reset
+        return false;
+    }
+  }
 }
 
 function drawScreenFlowGuides() {
@@ -82,12 +135,14 @@ function initParticles() {
 }
 
 function generateParticle() {
+  let id = params.particles.nextId++;
+  // print(id);
   let loc = createVector(random(windowWidth), random(windowHeight));
   let angle = random(TWO_PI);
   let acc = createVector(sin(angle), -cos(angle));
   let dir = acc.copy().mult(random(0.2,1));
   acc.mult(1/50);
-  return new Particle(loc, dir, acc);
+  return new Particle(id, loc, dir, acc);
 }
 
 function getValueFromBucket(x, y) {
@@ -116,9 +171,47 @@ function getTestRotatingBucketData(little_x_lim, little_y_lim) {
   return arr;
 }
 
+function copyParticleLocationsToVectors() {
+  for (let i = frameCount % params.throttle; i < params.particles.max; i += 1 + (frameCount % params.throttle)) {
+    let id = params.particles.objects[i].id;
+    let loc = params.particles.objects[i].loc;
+    if (!params.saveSVG.vectorPath[id]) {
+      params.saveSVG.vectorPath[id] = [];
+    }
+    params.saveSVG.vectorPath[id].push(createVector(loc.x, loc.y));
+  }
+}
+
+function drawSVGVectorPath () {
+  if (params.saveSVG.vectorPath.length > 0) {
+    let path = params.saveSVG.vectorPath.splice(0, 1);
+    if (path && path.length > 0 && path[0] && path[0].length > 0) {
+      noFill();
+      beginShape();
+      for (let k = 0; k < path[0].length; k++) {
+        let loc = path[0][k];
+        let x = round(loc.x, 3);
+        if (isNaN(x)) {
+          x = loc.x;
+        }
+        let y = round(loc.y, 3);
+        if (isNaN(y)) {
+          y = loc.y;
+        }
+        vertex(loc.x, loc.y);
+      }
+      endShape();
+    }
+  } else {
+    drawScreenMsg(geoEnvData.readings.join());
+    params.saveSVG.mode = 5; // save the SVG
+  }
+}
+
 class Particle{
   // Vector, Vector, Vector
-  constructor(loc, dir, acc){
+  constructor(id, loc, dir, acc) {
+    this.id = id;
     this.loc = loc;
     this.dir = dir;
     this.acc = acc;
@@ -129,9 +222,7 @@ class Particle{
     this.update();
   }
   move() {
-    // TODO look at params.normalizedBucket.extents
     let val = getValueFromBucket(this.loc.x, this.loc.y);
-    // print(val);
     if (val !== null) {
       let angle = val * TWO_PI;
       let acc = createVector(sin(angle), -cos(angle));
@@ -147,6 +238,7 @@ class Particle{
     //if (distance>150) {
     if (this.loc.x<0 || this.loc.x>windowWidth || this.loc.y<0 || this.loc.y>windowHeight) {
       let newParticle = generateParticle();
+      this.id = newParticle.id;
       this.loc = newParticle.loc;
       this.dir = newParticle.dir;
       this.acc = newParticle.acc;
