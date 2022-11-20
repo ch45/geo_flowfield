@@ -6,8 +6,8 @@ params.backgroundColor = 220;
 params.alpha = 10;
 params.real = {data: null};
 params.normalizedBucket = {data: [], extents: {x: 0, y: 0}};
-params.particles = {objects: [], nextId: 0, max: 60, color: 102};
-params.saveSVG = {pg: null, vectorPath: [], mode: 0};
+params.particles = {objects: [], nextId: 0, max: 200, color: 102, width: 10};
+params.saveSVG = {pg: null, vectorPath: [], mode: 0, startExtentId: 0};
 params.throttle = 1; // >=1
 params.KeyS = 83; // the S key - to save flowfield as an SVG while depressed
 params.canvas = null;
@@ -47,9 +47,8 @@ function draw() {
 }
 
 function checkDrawingSVG() {
-  print("save SVG mode " + params.saveSVG.mode);
+  // print("save SVG mode " + params.saveSVG.mode);
   if (keyIsDown(params.KeyS)) {
-    print("s key depressed");
     switch (params.saveSVG.mode) {
       case 0:
         params.saveSVG.mode = 1; // cycle for a de-bounce
@@ -57,10 +56,11 @@ function checkDrawingSVG() {
       case 1: // de-bounce pass
       case 3: // de-bounce return
         params.saveSVG.mode = 2; // collecting data
+        params.saveSVG.startExtentId = 0;
         return false;
       case 2: // collecting data
         copyParticleLocationsToVectors();
-        drawScreenMsg("Collecting Paths " + params.saveSVG.vectorPath.length);
+        drawScreenMsg("Collecting Paths " + getNumberVectors());
         return false;
       default:
         return false;
@@ -184,6 +184,14 @@ function copyParticleLocationsToVectors() {
   }
 }
 
+function getNumberVectors () {
+  let curEnd = params.particles.nextId - 1;
+  if (params.saveSVG.startExtentId === 0) {
+    params.saveSVG.startExtentId = curEnd;
+  }
+  return params.particles.max + curEnd - params.saveSVG.startExtentId;
+}
+
 function drawSVGVectorPath () {
   if (params.saveSVG.vectorPath.length > 0) {
     let path = params.saveSVG.vectorPath.splice(0, 1);
@@ -200,7 +208,7 @@ function drawSVGVectorPath () {
         if (isNaN(y)) {
           y = loc.y;
         }
-        vertex(loc.x, loc.y);
+        vertex(x, y);
       }
       endShape();
     }
@@ -250,6 +258,6 @@ class Particle{
     fill(params.particles.color);
     noStroke();
     // TODO draw line from previous point for plotter
-    ellipse(this.loc.x, this.loc.y, 10);
+    ellipse(this.loc.x, this.loc.y, params.particles.width);
   }
 }
